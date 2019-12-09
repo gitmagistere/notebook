@@ -1,0 +1,4 @@
+﻿
+liste =[]
+#ou
+tableau = []
