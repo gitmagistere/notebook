@@ -89,3 +89,5 @@ class RequestDB():
             resf = [{'name': _["name"], "type": _['type'], 'notnull': _['notnull']} for _ in res]
             lines.append(self._prettyprint_table(resf))
         return HTML("\n".join(lines))
+
+print("requestdb v", __version__)
