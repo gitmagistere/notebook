@@ -20,8 +20,8 @@ RUN true \
  && pip install seaborn \
     # w8 \
  && pip install aiohttp \
- && true
    # new library JPL Planetary and Lunar Ephemeris \
  && pip install -U de423 \
    # dependency JPL Planetary and Lunar Ephemeris \
  && pip install -U  jplephem \
+ && true
