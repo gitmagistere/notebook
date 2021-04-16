@@ -1,0 +1,172 @@
+---
+title: "EXERCICES"
+output:
+  html_document:
+    css: M:/prj-depp-formation/F-Découvrir R/Feuille CSS/style_Restitution_MEN.css
+    df_print: kable
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: no
+  html_notebook:
+    fig_caption: yes
+    theme: paper
+    toc: no
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r eval=FALSE, include=FALSE}
+setwd(dir = "Exercices/")
+unzip("Jeu de donnees.zip")
+```
+
+# Importer des données
+## Exercice 1
+Importer les fichiers “Communes.txt” et “Agents.csv” dans les objets Communes et Agents
+
+```{r}
+Communes = read.table(file = "Communes.txt", header = TRUE, sep = "|", quote = "\"")
+head(Communes)
+Agents = read.table(file = "Agents.csv", header = TRUE, sep = ";")
+head(Agents)
+```
+
+## Exercice 2
+Importer la table SAS “bce_uai.sas7bdat” dans l’objet nommé BCE
+
+```{r}
+require(haven)
+BCE = read_sas(data_file = "bce_uai.sas7bdat")
+head(BCE)
+```
+
+## Exercice 3
+Importer la chaine JSON “Service.json” dans l’objet nommé Service
+
+```{r}
+require(jsonlite)
+Service = fromJSON(txt = "Service.json")
+```
+
+## Exercice 4
+Importer l’ensemble des onglets du fichier “Geoloc.xlsx”. Chaque onglet sera importé dans un objet au nom de l’onglet
+
+```{r}
+require(readxl)
+excel_sheets(path = "Geoloc.xlsx")
+Departements = read_excel(path = "Geoloc.xlsx", sheet = "Departements")
+ACADEMIES = read_excel(path = "Geoloc.xlsx", sheet = "ACADEMIES")
+Regions = read_excel(path = "Geoloc.xlsx", sheet = "Regions")
+```
+# Transformer les données
+## Exercice 1
+
+Créer, à partir de la table BCE:
+
+* une table des établissements privés
+* une table des établissements dont le nom contient “BRASSENS”
+
+```{r}
+require(tidyverse)
+Prive = BCE %>% filter(SECTEUR_PUBLIC_PRIVE == "PR")
+head(Prive)
+Brassens = BCE %>% filter(str_detect(string = PATRONYME_UAI, pattern = "BRASSENS"))
+head(Brassens)
+```
+
+## Exercice 2
+Construire une table Geoloc à partir des différents onglets de “Geoloc.xlsx” et de la table Communes.
+
+```{r}
+Geoloc = 
+  Communes %>% 
+  inner_join(y = Departements, by = "departement_insee_3") %>% 
+  inner_join(y = ACADEMIES, by = "libelle_departement") %>% 
+  inner_join(y = Regions, by = "libelle_academie")
+```
+
+## Exercice 3
+
+Dans la table Services, transformer toutes les heures en minutes.   
+*On se contentera de multiplier par 60 les colonnes représentant des heures*
+
+```{r}
+Service %>% summary()
+Service_minutes = 
+  Service %>% 
+  gather(key = Vars, value = Valeur, -Clef:-disrecru) %>% 
+  mutate(Valeur = Valeur * 60) %>%
+  spread(key = Vars, value = Valeur)
+```
+
+# Statistiques simples
+## Exercice 1
+
+A l’aide des fonctions graphiques de base, réaliser les graphiques suivants 
+
+```{r}
+plot(x = Service$h_faites, y = Service$h_horens)
+hist(Agents$age)
+Agents %>%
+  select(Clef, acad, age) %>%
+  spread(key = acad, value = age) %>%
+  select(-Clef) %>%
+  boxplot()
+```
+
+# Exercice 2
+Réaliser un tableau croisé, donnant la proportion d’établissements publics et privés par académie.
+
+```{r}
+BCE_Geoloc = left_join(x = BCE,
+                       y = Geoloc,
+                       by = c("COMMUNE" = "commune"))
+Table =
+  table(BCE_Geoloc$libelle_academie,
+        BCE_Geoloc$SECTEUR_PUBLIC_PRIVE) %>%
+  prop.table(1)
+Table * 100
+```
+
+```{r paged.print=TRUE}
+require(scales)
+BCE_Geoloc %>% 
+  group_by(libelle_academie, SECTEUR_PUBLIC_PRIVE) %>% 
+  summarise(N = n_distinct(NUMERO_UAI)) %>% 
+  group_by(libelle_academie) %>% 
+  mutate(N = percent(N/sum(N))) %>% 
+  spread(key = SECTEUR_PUBLIC_PRIVE, value = N) 
+```
+
+# ggplot2
+
+```{r}
+BCE_Geoloc %>%
+  filter(!is.na(libelle_academie)) %>%
+  ggplot(mapping = aes(x = libelle_academie, fill = SECTEUR_PUBLIC_PRIVE)) +
+  geom_bar(stat = "count", position = "fill") +
+  scale_fill_discrete(name = "Statut") +
+  ggtitle(label = "Répartition du public et du privé par académie") +
+  xlab("Académie") +
+  ylab("Fréquence") +
+  theme(axis.text.x = element_text(angle = 90))
+  
+Service %>%
+  ggplot(mapping = aes(x = modalite, y = heurens)) +
+  geom_boxplot() +
+  coord_flip() +
+  ggtitle(label = "Répartition des heures enseignées par modalité") +
+  xlab("Heures enseignées") +
+  ylab("Modalité")
+  
+Service %>%
+  ggplot(mapping = aes(x = heurens, y = serv_th, colour = modalite)) +
+  geom_point() +
+  geom_abline() +
+  ggtitle(label = "Heures réalisées au regard du service théorique") +
+  xlab("Heures réalisées") +
+  ylab("Service théorique") +
+  scale_y_continuous(limits = c(0, 35))
+```
+
